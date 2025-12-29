@@ -1,3 +1,5 @@
+# Technical Details
+
 ### gRPC Framework
 As part of this addition, all of the modules and bootstrap code within them were refactored to leverage providers, which facilitated moving  the Jetty server into a separate module and the conformance to Guice guidelines and best practices. 
 This feature constitutes a server-side gRPC implementation along with protobuf RPC schemas for the workflow, metadata and task APIs that can be run concurrently with the Jersey-based HTTP/REST server. The protobuf models for all the types are exposed through the API. gRPC java clients for the workflow, metadata and task APIs are also available for use. Another valuable addition is an idiomatic Go gRPC client implementation for the worker API.
@@ -6,12 +8,12 @@ The proto models are auto-generated at compile time using this ProtoGen library.
 
 ### Cassandra Persistence
 The Cassandra persistence layer currently provides a partial implementation of the ExecutionDAO that supports all the CRUD operations for tasks and workflow execution. The data modelling is done in a denormalized manner and stored in two tables. The “workflows” table houses all the information for a workflow execution including all its tasks and is the source of truth for all the information regarding a workflow and its tasks. The “task_lookup” table, as the name suggests stores a lookup of taskIds to workflowId. This table facilitates the fast retrieval of task data given a taskId. 
-All the datastore operations that are used during the critical execution path of a workflow have been implemented currently. Few of the operational abilities of the ExecutionDAO are yet to be implemented. This module also does not provide implementations for QueueDAO and MetadataDAO. We envision using the Cassandra DAO with an external queue implementation, since implementing a queuing recipe on top of Cassandra is an anti-pattern that we want to stay away from.
+All the datastore operations that are used during the critical execution path of a workflow have been implemented currently. Few of the operational abilities of the ExecutionDAO are yet to be implemented. This module also does not provide implementations for QueueDAO, PollDataDAO and RateLimitingDAO. We envision using the Cassandra DAO with an external queue implementation, since implementing a queuing recipe on top of Cassandra is an anti-pattern that we want to stay away from.
 
 
 ### External Payload Storage
 The implementation of this feature is such that the externalization of payloads is fully transparent and automated to the user. Conductor operators can configure the usage of this feature and is completely abstracted and hidden from the user, thereby allowing the operators full control over the barrier limits. Currently, only AWS S3 is supported as a storage system, however, as with all other Conductor components, this is pluggable and can be extended to enable any other object store to be used as an external payload storage system.
-The externalization of payloads is enforced using two kinds of [barriers](../externalpayloadstorage). Soft barriers are used when the  payload size is warranted enough to be stored as part of workflow execution. These payloads will be stored in external storage and used during execution. Hard barriers are enforced to safeguard against voluminous data, and such payloads are rejected and the workflow execution is failed.
+The externalization of payloads is enforced using two kinds of [barriers](/externalpayloadstorage.html). Soft barriers are used when the  payload size is warranted enough to be stored as part of workflow execution. These payloads will be stored in external storage and used during execution. Hard barriers are enforced to safeguard against voluminous data, and such payloads are rejected and the workflow execution is failed.
 The payload size is evaluated in the client before being sent over the wire to the server. If the payload size exceeds the configured soft limit, the client makes a request to the server for the location at which the payload is to be stored. In this case where S3 is being used, the server returns a signed url for the location and the client uploads the payload using this signed url. The relative path to the payload object is then stored in the workflow/task metadata. The server can then download this payload from this path and use as needed during execution. This allows the server to control access to the S3 bucket, thereby making the user applications where the worker processes are run completely agnostic of the permissions needed to access this location.
 
 
@@ -63,3 +65,86 @@ While the locking service helps to run one decide at a time, it might still be p
 
 Based on your requirements, it is possible to use none, one or both of the distributed locking and fencing tokens implementations.
 
+#### Alternative solution to distributed "decide" evaluation
+
+As mentioned in the previous section, the "decide" logic is triggered from multiple places in a conductor instance. Either a direct trigger such as user starting a workflow or a timed trigger from the Sweeper service.
+
+> Sweeper service is responsible for continually checking state of all workflows executions and trigger the "decide" logic which in turn can time the workflow out.
+
+In a single node deployment (single dynomite rack and single conductor server) this shouldn't be a problem. But when running multiple replicated dynomite racks and a conductor server on top of each rack, this might trigger the race condition described in previous section.
+
+> Dynomite rack is a single or multiple instance dynomite setup that holds all the data.
+
+> More on dynomite HA setup: (https://netflixtechblog.com/introducing-dynomite-making-non-distributed-databases-distributed-c7bce3d89404)
+
+In a cluster deployment, the default behavior for Dyno Queues is such, that it distributes the workload (round-robin style) to all the conductor servers.
+This can create a situation where the first task to be executed is queued for conductor server #1 but the sweeper service is queued for conductor server #2.
+
+##### More on dyno queues
+
+Dyno queues are the default queuing mechanism of conductor.
+
+Queues are allocated and used for:
+* Task execution - each task type gets a queue
+* Workflow execution - single queue with all currently executing workflows (deciderQueue)
+  * This queue is used by SweeperService
+
+**Each conductor server instance gets its own set of queues**. Or more precisely a queue shard of its own.
+This means that if you have 2 task types, you end up with 6 queues altogether e.g.
+
+```
+conductor_queues.test.QUEUE._deciderQueue.c
+conductor_queues.test.QUEUE._deciderQueue.d
+conductor_queues.test.QUEUE.HTTP.c
+conductor_queues.test.QUEUE.HTTP.d
+conductor_queues.test.QUEUE.LAMBDA.c
+conductor_queues.test.QUEUE.LAMBDA.d
+```
+
+> The "c" and "d" suffixes are the shards identifying conductor server instace #1 and instance #2 respectively.
+
+> The shard names are extracted from dynomite rack name such as us-east-1c that is set in "LOCAL_RACK" or "EC2_AVAILABILTY_ZONE"
+
+Considering an execution of a simple workflow with just 2 tasks: [HTTP, LAMBDA], you should end up with queues being filled as follows:
+
+```
+Workflow execution    -> conductor_queues.test.QUEUE._deciderQueue.c
+HTTP taks execution   -> conductor_queues.test.QUEUE.HTTP.d
+LAMBDA task execution -> conductor_queues.test.QUEUE.LAMBDA.c
+```
+
+Which means that SweeperService in conductor instance #1 is responsible for sweeping the workflow, conductor #2 is responsible for executing HTTP task and conductor #1 again responsible for executing LAMBDA task.
+
+This illustrates the race condition: If the HTTP task completion in instance #2 happens at the same time as sweep in instance #1 ... you can end up with 2 different updates to a workflow execution: one update timing workflow out while the other completing the task and scheduling next.
+
+> The round-robin strategy responsible for work distribution is defined [here](https://github.com/Netflix/dyno-queues/blob/1cde55bbb69acd631c671a0cb2f9db2419163e33/dyno-queues-redis/src/main/java/com/netflix/dyno/queues/redis/sharding/RoundRobinStrategy.java)
+
+##### Back to alternative solution
+
+The alternative solution here is **Switching round-robin queue allocation for a local-only strategy**.
+Meaning that a workflow and its task executions are queued only for the conductor instance which started the workflow.
+
+This completely avoids the race condition for the price of removing task execution distribution.
+
+Since all tasks and the sweeper service read/write only from/to "local" queues, it is impossible to run into a race condition between conductor instances.
+
+The downside here is that the workload is not distributed across all conductor servers. Which might be an advantage in active-standby deployments.
+
+Considering other downsides ...
+
+Considering a situation where a conductor instance goes down:
+* With local-only strategy, the workflow executions from failed conductor instance will not progress until:
+  * The conductor instance is restarted or
+  * The executions are manually terminated and restarted from a different node
+* With round-robin strategy, there is a chance the tasks will be rescheduled on a different conductor node
+  * This is nondeterministic though
+  
+**Enabling local only queue allocation strategy for dyno queues:**
+
+Just enable following setting the config.properties:
+
+```
+workflow.dyno.queue.sharding.strategy=localOnly
+```
+
+> The default is roundRobin

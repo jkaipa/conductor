@@ -1,6 +1,7 @@
+# Kitchen Sink
 An example kitchensink workflow that demonstrates the usage of all the schema constructs.
 
-###Definition
+### Definition
 
 ```json
 {
@@ -157,14 +158,15 @@ An example kitchensink workflow that demonstrates the usage of all the schema co
     "statues": "${get_es_1.output..status}",
     "workflowIds": "${get_es_1.output..workflowId}"
   },
+  "ownerEmail": "example@email.com",
   "schemaVersion": 2
 }
 ```
 ### Visual Flow
-![img](../img/kitchensink.png)
+![img](/img/kitchensink.png)
 
 ### Running Kitchensink Workflow
-1. Start the server as documented [here](/server).  Use ```-DloadSample=true``` java system property when launching the server.  This will create a kitchensink workflow, related task definitions and kick off an instance of kitchensink workflow.
+1. Start the server as documented [here](/gettingstarted/docker.html).  Use ```-DloadSample=true``` java system property when launching the server.  This will create a kitchensink workflow, related task definitions and kick off an instance of kitchensink workflow.
 2. Once the workflow has started, the first task remains in the ```SCHEDULED``` state.  This is because no workers are currently polling for the task.
 3. We will use the REST endpoints directly to poll for tasks and updating the status.
 
@@ -186,7 +188,7 @@ The response is a text string identifying the workflow instance id.
 curl http://localhost:8080/api/tasks/poll/task_1
 ```
    
-   The response should look something like:
+The response should look something like:
    
 ```json
 {
@@ -226,7 +228,7 @@ curl -H 'Content-Type:application/json' -H 'Accept:application/json' -X POST htt
 	"taskId": "b9eea7dd-3fbd-46b9-a9ff-b00279459476",
 	"workflowInstanceId": "b0d1a935-3d74-46fd-92b2-0ca1e388659f",
 	"status": "COMPLETED",
-	"output": {
+	"outputData": {
 	    "mod": 5,
 	    "taskToExecute": "task_1",
 	    "oddEven": 0,
@@ -252,5 +254,6 @@ curl -H 'Content-Type:application/json' -H 'Accept:application/json' -X POST htt
 	}
 }'
 ```
+
 This will mark the task_1 as completed and schedule ```task_5``` as the next task.  
 Repeat the same process for the subsequently scheduled tasks until the completion.

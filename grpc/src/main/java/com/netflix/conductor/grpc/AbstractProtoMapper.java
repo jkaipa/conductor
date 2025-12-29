@@ -16,6 +16,7 @@ import com.netflix.conductor.common.metadata.workflow.SkipTaskRequest;
 import com.netflix.conductor.common.metadata.workflow.StartWorkflowRequest;
 import com.netflix.conductor.common.metadata.workflow.SubWorkflowParams;
 import com.netflix.conductor.common.metadata.workflow.WorkflowDef;
+import com.netflix.conductor.common.metadata.workflow.WorkflowDefSummary;
 import com.netflix.conductor.common.metadata.workflow.WorkflowTask;
 import com.netflix.conductor.common.run.TaskSummary;
 import com.netflix.conductor.common.run.Workflow;
@@ -35,6 +36,7 @@ import com.netflix.conductor.proto.TaskPb;
 import com.netflix.conductor.proto.TaskResultPb;
 import com.netflix.conductor.proto.TaskSummaryPb;
 import com.netflix.conductor.proto.WorkflowDefPb;
+import com.netflix.conductor.proto.WorkflowDefSummaryPb;
 import com.netflix.conductor.proto.WorkflowPb;
 import com.netflix.conductor.proto.WorkflowSummaryPb;
 import com.netflix.conductor.proto.WorkflowTaskPb;
@@ -49,7 +51,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Generated;
 
-@Generated("com.github.vmg.protogen.ProtoGen")
+@Generated("com.netflix.conductor.annotationsprocessor.protogen")
 public abstract class AbstractProtoMapper {
     public DynamicForkJoinTaskPb.DynamicForkJoinTask toProto(DynamicForkJoinTask from) {
         DynamicForkJoinTaskPb.DynamicForkJoinTask.Builder to = DynamicForkJoinTaskPb.DynamicForkJoinTask.newBuilder();
@@ -183,6 +185,9 @@ public abstract class AbstractProtoMapper {
             to.addActions( toProto(elem) );
         }
         to.setActive( from.isActive() );
+        if (from.getEvaluatorType() != null) {
+            to.setEvaluatorType( from.getEvaluatorType() );
+        }
         return to.build();
     }
 
@@ -193,6 +198,7 @@ public abstract class AbstractProtoMapper {
         to.setCondition( from.getCondition() );
         to.setActions( from.getActionsList().stream().map(this::fromProto).collect(Collectors.toCollection(ArrayList::new)) );
         to.setActive( from.getActive() );
+        to.setEvaluatorType( from.getEvaluatorType() );
         return to;
     }
 
@@ -464,6 +470,9 @@ public abstract class AbstractProtoMapper {
             to.setVersion( from.getVersion() );
         }
         to.putAllTaskToDomain( from.getTaskToDomain() );
+        if (from.getWorkflowDefinition() != null) {
+            to.setWorkflowDefinition( toProto( from.getWorkflowDefinition() ) );
+        }
         return to.build();
     }
 
@@ -472,6 +481,9 @@ public abstract class AbstractProtoMapper {
         to.setName( from.getName() );
         to.setVersion( from.getVersion() );
         to.setTaskToDomain( from.getTaskToDomainMap() );
+        if (from.hasWorkflowDefinition()) {
+            to.setWorkflowDefinition( fromProto( from.getWorkflowDefinition() ) );
+        }
         return to;
     }
 
@@ -560,6 +572,7 @@ public abstract class AbstractProtoMapper {
         if (from.getSubWorkflowId() != null) {
             to.setSubWorkflowId( from.getSubWorkflowId() );
         }
+        to.setSubworkflowChanged( from.isSubworkflowChanged() );
         return to.build();
     }
 
@@ -618,6 +631,7 @@ public abstract class AbstractProtoMapper {
         to.setIsolationGroupId( from.getIsolationGroupId() );
         to.setIteration( from.getIteration() );
         to.setSubWorkflowId( from.getSubWorkflowId() );
+        to.setSubworkflowChanged( from.getSubworkflowChanged() );
         return to;
     }
 
@@ -696,6 +710,12 @@ public abstract class AbstractProtoMapper {
         if (from.getOwnerEmail() != null) {
             to.setOwnerEmail( from.getOwnerEmail() );
         }
+        if (from.getPollTimeoutSeconds() != null) {
+            to.setPollTimeoutSeconds( from.getPollTimeoutSeconds() );
+        }
+        if (from.getBackoffScaleFactor() != null) {
+            to.setBackoffScaleFactor( from.getBackoffScaleFactor() );
+        }
         return to.build();
     }
 
@@ -722,26 +742,8 @@ public abstract class AbstractProtoMapper {
         to.setIsolationGroupId( from.getIsolationGroupId() );
         to.setExecutionNameSpace( from.getExecutionNameSpace() );
         to.setOwnerEmail( from.getOwnerEmail() );
-        return to;
-    }
-
-    public TaskDefPb.TaskDef.RetryLogic toProto(TaskDef.RetryLogic from) {
-        TaskDefPb.TaskDef.RetryLogic to;
-        switch (from) {
-            case FIXED: to = TaskDefPb.TaskDef.RetryLogic.FIXED; break;
-            case EXPONENTIAL_BACKOFF: to = TaskDefPb.TaskDef.RetryLogic.EXPONENTIAL_BACKOFF; break;
-            default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
-        }
-        return to;
-    }
-
-    public TaskDef.RetryLogic fromProto(TaskDefPb.TaskDef.RetryLogic from) {
-        TaskDef.RetryLogic to;
-        switch (from) {
-            case FIXED: to = TaskDef.RetryLogic.FIXED; break;
-            case EXPONENTIAL_BACKOFF: to = TaskDef.RetryLogic.EXPONENTIAL_BACKOFF; break;
-            default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
-        }
+        to.setPollTimeoutSeconds( from.getPollTimeoutSeconds() );
+        to.setBackoffScaleFactor( from.getBackoffScaleFactor() );
         return to;
     }
 
@@ -762,6 +764,28 @@ public abstract class AbstractProtoMapper {
             case RETRY: to = TaskDef.TimeoutPolicy.RETRY; break;
             case TIME_OUT_WF: to = TaskDef.TimeoutPolicy.TIME_OUT_WF; break;
             case ALERT_ONLY: to = TaskDef.TimeoutPolicy.ALERT_ONLY; break;
+            default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
+        }
+        return to;
+    }
+
+    public TaskDefPb.TaskDef.RetryLogic toProto(TaskDef.RetryLogic from) {
+        TaskDefPb.TaskDef.RetryLogic to;
+        switch (from) {
+            case FIXED: to = TaskDefPb.TaskDef.RetryLogic.FIXED; break;
+            case EXPONENTIAL_BACKOFF: to = TaskDefPb.TaskDef.RetryLogic.EXPONENTIAL_BACKOFF; break;
+            case LINEAR_BACKOFF: to = TaskDefPb.TaskDef.RetryLogic.LINEAR_BACKOFF; break;
+            default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
+        }
+        return to;
+    }
+
+    public TaskDef.RetryLogic fromProto(TaskDefPb.TaskDef.RetryLogic from) {
+        TaskDef.RetryLogic to;
+        switch (from) {
+            case FIXED: to = TaskDef.RetryLogic.FIXED; break;
+            case EXPONENTIAL_BACKOFF: to = TaskDef.RetryLogic.EXPONENTIAL_BACKOFF; break;
+            case LINEAR_BACKOFF: to = TaskDef.RetryLogic.LINEAR_BACKOFF; break;
             default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
         }
         return to;
@@ -910,7 +934,35 @@ public abstract class AbstractProtoMapper {
             to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
         }
         to.setWorkflowPriority( from.getWorkflowPriority() );
+        if (from.getDomain() != null) {
+            to.setDomain( from.getDomain() );
+        }
         return to.build();
+    }
+
+    public TaskSummary fromProto(TaskSummaryPb.TaskSummary from) {
+        TaskSummary to = new TaskSummary();
+        to.setWorkflowId( from.getWorkflowId() );
+        to.setWorkflowType( from.getWorkflowType() );
+        to.setCorrelationId( from.getCorrelationId() );
+        to.setScheduledTime( from.getScheduledTime() );
+        to.setStartTime( from.getStartTime() );
+        to.setUpdateTime( from.getUpdateTime() );
+        to.setEndTime( from.getEndTime() );
+        to.setStatus( fromProto( from.getStatus() ) );
+        to.setReasonForIncompletion( from.getReasonForIncompletion() );
+        to.setExecutionTime( from.getExecutionTime() );
+        to.setQueueWaitTime( from.getQueueWaitTime() );
+        to.setTaskDefName( from.getTaskDefName() );
+        to.setTaskType( from.getTaskType() );
+        to.setInput( from.getInput() );
+        to.setOutput( from.getOutput() );
+        to.setTaskId( from.getTaskId() );
+        to.setExternalInputPayloadStoragePath( from.getExternalInputPayloadStoragePath() );
+        to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
+        to.setWorkflowPriority( from.getWorkflowPriority() );
+        to.setDomain( from.getDomain() );
+        return to;
     }
 
     public WorkflowPb.Workflow toProto(Workflow from) {
@@ -937,10 +989,6 @@ public abstract class AbstractProtoMapper {
         for (Map.Entry<String, Object> pair : from.getOutput().entrySet()) {
             to.putOutput( pair.getKey(), toProto( pair.getValue() ) );
         }
-        if (from.getWorkflowType() != null) {
-            to.setWorkflowType( from.getWorkflowType() );
-        }
-        to.setVersion( from.getVersion() );
         if (from.getCorrelationId() != null) {
             to.setCorrelationId( from.getCorrelationId() );
         }
@@ -950,7 +998,6 @@ public abstract class AbstractProtoMapper {
         if (from.getReasonForIncompletion() != null) {
             to.setReasonForIncompletion( from.getReasonForIncompletion() );
         }
-        to.setSchemaVersion( from.getSchemaVersion() );
         if (from.getEvent() != null) {
             to.setEvent( from.getEvent() );
         }
@@ -966,6 +1013,11 @@ public abstract class AbstractProtoMapper {
             to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
         }
         to.setPriority( from.getPriority() );
+        for (Map.Entry<String, Object> pair : from.getVariables().entrySet()) {
+            to.putVariables( pair.getKey(), toProto( pair.getValue() ) );
+        }
+        to.setLastRetriedTime( from.getLastRetriedTime() );
+        to.addAllFailedTaskNames( from.getFailedTaskNames() );
         return to.build();
     }
 
@@ -987,12 +1039,9 @@ public abstract class AbstractProtoMapper {
             outputMap.put( pair.getKey(), fromProto( pair.getValue() ) );
         }
         to.setOutput(outputMap);
-        to.setWorkflowType( from.getWorkflowType() );
-        to.setVersion( from.getVersion() );
         to.setCorrelationId( from.getCorrelationId() );
         to.setReRunFromWorkflowId( from.getReRunFromWorkflowId() );
         to.setReasonForIncompletion( from.getReasonForIncompletion() );
-        to.setSchemaVersion( from.getSchemaVersion() );
         to.setEvent( from.getEvent() );
         to.setTaskToDomain( from.getTaskToDomainMap() );
         to.setFailedReferenceTaskNames( from.getFailedReferenceTaskNamesList().stream().collect(Collectors.toCollection(HashSet::new)) );
@@ -1002,6 +1051,13 @@ public abstract class AbstractProtoMapper {
         to.setExternalInputPayloadStoragePath( from.getExternalInputPayloadStoragePath() );
         to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
         to.setPriority( from.getPriority() );
+        Map<String, Object> variablesMap = new HashMap<String, Object>();
+        for (Map.Entry<String, Value> pair : from.getVariablesMap().entrySet()) {
+            variablesMap.put( pair.getKey(), fromProto( pair.getValue() ) );
+        }
+        to.setVariables(variablesMap);
+        to.setLastRetriedTime( from.getLastRetriedTime() );
+        to.setFailedTaskNames( from.getFailedTaskNamesList().stream().collect(Collectors.toCollection(HashSet::new)) );
         return to;
     }
 
@@ -1062,6 +1118,12 @@ public abstract class AbstractProtoMapper {
             to.setTimeoutPolicy( toProto( from.getTimeoutPolicy() ) );
         }
         to.setTimeoutSeconds( from.getTimeoutSeconds() );
+        for (Map.Entry<String, Object> pair : from.getVariables().entrySet()) {
+            to.putVariables( pair.getKey(), toProto( pair.getValue() ) );
+        }
+        for (Map.Entry<String, Object> pair : from.getInputTemplate().entrySet()) {
+            to.putInputTemplate( pair.getKey(), toProto( pair.getValue() ) );
+        }
         return to.build();
     }
 
@@ -1084,6 +1146,16 @@ public abstract class AbstractProtoMapper {
         to.setOwnerEmail( from.getOwnerEmail() );
         to.setTimeoutPolicy( fromProto( from.getTimeoutPolicy() ) );
         to.setTimeoutSeconds( from.getTimeoutSeconds() );
+        Map<String, Object> variablesMap = new HashMap<String, Object>();
+        for (Map.Entry<String, Value> pair : from.getVariablesMap().entrySet()) {
+            variablesMap.put( pair.getKey(), fromProto( pair.getValue() ) );
+        }
+        to.setVariables(variablesMap);
+        Map<String, Object> inputTemplateMap = new HashMap<String, Object>();
+        for (Map.Entry<String, Value> pair : from.getInputTemplateMap().entrySet()) {
+            inputTemplateMap.put( pair.getKey(), fromProto( pair.getValue() ) );
+        }
+        to.setInputTemplate(inputTemplateMap);
         return to;
     }
 
@@ -1104,6 +1176,26 @@ public abstract class AbstractProtoMapper {
             case ALERT_ONLY: to = WorkflowDef.TimeoutPolicy.ALERT_ONLY; break;
             default: throw new IllegalArgumentException("Unexpected enum constant: " + from);
         }
+        return to;
+    }
+
+    public WorkflowDefSummaryPb.WorkflowDefSummary toProto(WorkflowDefSummary from) {
+        WorkflowDefSummaryPb.WorkflowDefSummary.Builder to = WorkflowDefSummaryPb.WorkflowDefSummary.newBuilder();
+        if (from.getName() != null) {
+            to.setName( from.getName() );
+        }
+        to.setVersion( from.getVersion() );
+        if (from.getCreateTime() != null) {
+            to.setCreateTime( from.getCreateTime() );
+        }
+        return to.build();
+    }
+
+    public WorkflowDefSummary fromProto(WorkflowDefSummaryPb.WorkflowDefSummary from) {
+        WorkflowDefSummary to = new WorkflowDefSummary();
+        to.setName( from.getName() );
+        to.setVersion( from.getVersion() );
+        to.setCreateTime( from.getCreateTime() );
         return to;
     }
 
@@ -1154,6 +1246,7 @@ public abstract class AbstractProtoMapper {
             to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
         }
         to.setPriority( from.getPriority() );
+        to.addAllFailedTaskNames( from.getFailedTaskNames() );
         return to.build();
     }
 
@@ -1176,6 +1269,7 @@ public abstract class AbstractProtoMapper {
         to.setExternalInputPayloadStoragePath( from.getExternalInputPayloadStoragePath() );
         to.setExternalOutputPayloadStoragePath( from.getExternalOutputPayloadStoragePath() );
         to.setPriority( from.getPriority() );
+        to.setFailedTaskNames( from.getFailedTaskNamesList().stream().collect(Collectors.toCollection(HashSet::new)) );
         return to;
     }
 
@@ -1248,6 +1342,15 @@ public abstract class AbstractProtoMapper {
         for (WorkflowTask elem : from.getLoopOver()) {
             to.addLoopOver( toProto(elem) );
         }
+        if (from.getRetryCount() != null) {
+            to.setRetryCount( from.getRetryCount() );
+        }
+        if (from.getEvaluatorType() != null) {
+            to.setEvaluatorType( from.getEvaluatorType() );
+        }
+        if (from.getExpression() != null) {
+            to.setExpression( from.getExpression() );
+        }
         return to.build();
     }
 
@@ -1290,6 +1393,9 @@ public abstract class AbstractProtoMapper {
         to.setAsyncComplete( from.getAsyncComplete() );
         to.setLoopCondition( from.getLoopCondition() );
         to.setLoopOver( from.getLoopOverList().stream().map(this::fromProto).collect(Collectors.toCollection(ArrayList::new)) );
+        to.setRetryCount( from.getRetryCount() );
+        to.setEvaluatorType( from.getEvaluatorType() );
+        to.setExpression( from.getExpression() );
         return to;
     }
 

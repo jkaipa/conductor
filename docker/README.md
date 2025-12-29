@@ -1,38 +1,51 @@
-# Docker
 
-This dockerfile runs using dynomite and elasticsearch. The conductor is split into the backend (server) and the frontend (ui). If an image with both of these items combined is desired, build the Dockerfile in the folder serverAndUI
+# Conductor Docker Builds
 
-## Building the image
-Dependency (build the jar files in ./server from project root)
-- `gradlew build`
+## Pre-built docker images
 
-Building the images:
- - `docker build -t conductor:server ./server`
- - `docker build -t conductor:ui ./ui`
+Conductor server with support for the following backend:
+1. Redis
+2. Postgres
+3. Mysql
+4. Cassandra
 
-or using compose:
- - `docker-compose build`
+### Docker File for Server and UI
 
-This builds the images:
- - conductor:server - the conductor server and API.
- - conductor:ui - the conductor frontend
+[Docker Image Source for Server with UI](server/Dockerfile)
 
-## Running conductor
-Running the images:
- - `docker run -p 8080:8080 -d -t conductor:server`
- - `docker run -p 5000:5000 -d -t conductor:ui` (requires elasticsearch running locally)
+### Configuration Guide for Conductor Server
+Conductor uses a persistent store for managing state.  
+The choice of backend is quite flexible and can be configured at runtime using `conductor.db.type` property.
 
-Using compose:
-`docker-compose up`
+Refer to the table below for various supported backend and required configurations to enable each of them.
 
-## Exiting Compose
-`ctrl+c` will exit docker compose.
+> [!IMPORTANT]
+> 
+> See [config.properties](docker/server/config/config.properties) for the required properties for each of the backends.
+>
+> | Backend    | Property                           |
+> |------------|------------------------------------|
+> | postgres   | conductor.db.type=postgres         |
+> | redis      | conductor.db.type=redis_standalone |
+> | mysql      | conductor.db.type=mysql            |
+> | cassandra  | conductor.db.type=cassandra        |    
+>
 
+Conductor using Elasticsearch for indexing the workflow data.  
+Currently, Elasticsearch 6 and 7 are supported.
 
-To ensure images are stopped do:
- - `docker-compose down`
+We welcome community contributions for other indexing backends.
 
-## Running in Interactive Mode
-In interactive mode the default startup script for the container do not run
- - `docker run -p 8080:8080 -t -i conductor:server -`
- - `docker run -p 5000:5000 -t -i conductor:ui -`
+**Note:** Docker images use Elasticsearch 7.
+
+## Helm Charts
+TODO: Link to the helm charts
+
+## Run Docker Compose Locally
+### Use the docker-compose to bring up the local conductor server.
+
+| Docker Compose                                               | Description                |
+|--------------------------------------------------------------|----------------------------|
+| [docker-compose.yaml](docker-compose.yaml)                   | Redis + Elasticsearch 7    |
+| [docker-compose-postgres.yaml](docker-compose-postgres.yaml) | Postgres + Elasticsearch 7 |
+| [docker-compose-mysql.yaml](docker-compose-mysql.yaml)    | Mysql + Elasticsearch 7    |

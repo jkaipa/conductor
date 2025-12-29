@@ -1,43 +1,28 @@
 #
-# conductor:ui - Netflix conductor UI
+# conductor:ui - Netflix Conductor UI
 #
-FROM node:9-alpine
-MAINTAINER Netflix OSS <conductor@netflix.com>
+FROM node:20-alpine
+LABEL maintainer="Netflix OSS <conductor@netflix.com>"
 
 # Install the required packages for the node build
 # to run on alpine
-RUN apk update && apk add \
-  autoconf \
-  automake \
-  libtool \
-  build-base \
-  libstdc++ \
-  gcc \
-  abuild \
-  binutils \
-  nasm \
-  libpng \
-  libpng-dev \
-  libjpeg-turbo \
-  libjpeg-turbo-dev \
-  python
+RUN apk update && apk add --no-cache python3 py3-pip make g++
 
-# Make app folders
-RUN mkdir -p /app/ui
+# A directory within the virtualized Docker environment
+# Becomes more relevant when using Docker Compose later
+WORKDIR /usr/src/app
 
-# Copy the ui files onto the image
-COPY ./docker/ui/bin /app
-COPY ./ui /app/ui
+# Copies package.json to Docker environment in a separate layer as a performance optimization
+COPY ./ui/package.json ./
 
-# Copy the files for the server into the app folders
-RUN chmod +x /app/startup.sh
+# Installs all node packages. Cached unless package.json changes
+RUN yarn install && mkdir -p public && cp -r node_modules/monaco-editor public/
 
-# Get and install conductor UI
-RUN cd /app/ui \
-  && npm install \
-  && npm run build --server
+# Copies everything else over to Docker environment
+# node_modules excluded in .dockerignore.
+COPY ./ui .
 
-EXPOSE 5000
+# Include monaco sources into bundle (instead of using CDN)
+ENV REACT_APP_MONACO_EDITOR_USING_CDN=false
 
-CMD [ "/app/startup.sh" ]
-ENTRYPOINT ["/bin/sh"]
+CMD [ "yarn", "start" ]

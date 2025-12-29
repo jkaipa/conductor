@@ -1,6 +1,22 @@
+/*
+ * Copyright 2020 Netflix, Inc.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
 package com.netflix.conductor.grpc;
 
-import com.google.protobuf.*;
+import com.google.protobuf.Any;
+import com.google.protobuf.ListValue;
+import com.google.protobuf.NullValue;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 import com.netflix.conductor.common.metadata.workflow.WorkflowTask;
 import com.netflix.conductor.proto.WorkflowTaskPb;
 
@@ -21,6 +37,7 @@ import java.util.stream.Collectors;
  */
 public final class ProtoMapper extends AbstractProtoMapper {
     public static final ProtoMapper INSTANCE = new ProtoMapper();
+    private static final int NO_RETRY_VALUE = -1;
 
     private ProtoMapper() {}
 
@@ -121,6 +138,24 @@ public final class ProtoMapper extends AbstractProtoMapper {
     public List<WorkflowTask> fromProto(WorkflowTaskPb.WorkflowTask.WorkflowTaskList list) {
         return list.getTasksList().stream().map(this::fromProto).collect(Collectors.toList());
     }
+
+    @Override public WorkflowTaskPb.WorkflowTask toProto(final WorkflowTask from) {
+        final WorkflowTaskPb.WorkflowTask.Builder to = WorkflowTaskPb.WorkflowTask.newBuilder(super.toProto(from));
+        if (from.getRetryCount() == null) {
+            to.setRetryCount(NO_RETRY_VALUE);
+        }
+        return to.build();
+    }
+
+    @Override public WorkflowTask fromProto(final WorkflowTaskPb.WorkflowTask from) {
+        final WorkflowTask workflowTask = super.fromProto(from);
+        if (from.getRetryCount() == NO_RETRY_VALUE) {
+            workflowTask.setRetryCount(null);
+        }
+        return workflowTask;
+    }
+
+
 
     /**
      * Convert a list of {@link WorkflowTask} instances into a ProtoBuf wrapper object.
